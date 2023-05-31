@@ -1,9 +1,11 @@
 library csc_picker;
 
-import 'package:csc_picker/dropdown_with_search.dart';
-import 'package:flutter/services.dart' show rootBundle;
 import 'dart:convert';
+
+import 'package:csc_picker/dropdown_with_search.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show rootBundle;
+
 import 'model/select_status_model.dart';
 
 enum Layout { vertical, horizontal }
@@ -597,28 +599,53 @@ class CSCPickerState extends State<CSCPicker> {
   @override
   void initState() {
     super.initState();
-    setDefaults();
     if (widget.countryFilter != null) {
       _countryFilter = widget.countryFilter!;
     }
     getCountries();
+
     _selectedCity = widget.cityDropdownLabel;
     _selectedState = widget.stateDropdownLabel;
   }
 
   Future<void> setDefaults() async {
     if (widget.currentCountry != null) {
-      setState(() => _selectedCountry = widget.currentCountry);
-      await getStates();
+      try {
+        var firstWhere = CscCountry.values.firstWhere((element) =>
+            element.name.toLowerCase().trim() ==
+            widget.currentCountry?.toLowerCase().trim().replaceAll(" ", "_"));
+        await _onSelectedCountry(_country[Countries[firstWhere]!]!);
+      } catch (e) {
+        _selectedCountry = widget.currentCountry;
+      }
+      setState(() {});
+      // await getStates();
     }
 
     if (widget.currentState != null) {
-      setState(() => _selectedState = widget.currentState!);
+      try {
+        final currentState = _states.firstWhere((element) =>
+            element?.toLowerCase().trim() ==
+            widget.currentCountry?.toLowerCase().trim())!;
+        await _onSelectedState(currentState);
+      } catch (e) {
+        _selectedState = widget.currentState!;
+      }
+      setState(() {});
       await getCities();
     }
 
     if (widget.currentCity != null) {
-      setState(() => _selectedCity = widget.currentCity!);
+      setState(() {
+        try {
+          final currentCity = _cities.firstWhere((element) =>
+              element?.toLowerCase().trim() ==
+              widget.currentCountry?.toLowerCase().trim())!;
+          _onSelectedCity(currentCity);
+        } catch (e) {
+          _selectedCity = widget.currentCity!;
+        }
+      });
     }
   }
 
@@ -627,6 +654,7 @@ class CSCPickerState extends State<CSCPicker> {
       print(_country[Countries[widget.defaultCountry]!]);
       _onSelectedCountry(_country[Countries[widget.defaultCountry]!]!);
     }
+    setDefaults();
   }
 
   ///Read JSON country data from assets
@@ -643,7 +671,7 @@ class CSCPickerState extends State<CSCPicker> {
     if (_countryFilter.isNotEmpty) {
       _countryFilter.forEach((element) {
         var result = countries[Countries[element]!];
-        if(result!=null) addCountryToList(result);
+        if (result != null) addCountryToList(result);
       });
     } else {
       countries.forEach((data) {
@@ -740,47 +768,45 @@ class CSCPickerState extends State<CSCPicker> {
   }
 
   ///get methods to catch newly selected country state and city and populate state based on country, and city based on state
-  void _onSelectedCountry(String value) {
+  Future<void> _onSelectedCountry(String value) async {
     if (!mounted) return;
-    setState(() {
-      if (widget.flagState == CountryFlag.SHOW_IN_DROP_DOWN_ONLY) {
-        try {
-          this.widget.onCountryChanged!(value.substring(6).trim());
-        } catch (e) {}
-      } else
-        this.widget.onCountryChanged!(value);
-      //code added in if condition
-      if (value != _selectedCountry) {
-        _states.clear();
-        _cities.clear();
-        _selectedState = widget.stateDropdownLabel;
-        _selectedCity = widget.cityDropdownLabel;
-        this.widget.onStateChanged!(null);
-        this.widget.onCityChanged!(null);
-        _selectedCountry = value;
-        getStates();
-      } else {
-        this.widget.onStateChanged!(_selectedState);
-        this.widget.onCityChanged!(_selectedCity);
-      }
-    });
+    if (widget.flagState == CountryFlag.SHOW_IN_DROP_DOWN_ONLY) {
+      try {
+        this.widget.onCountryChanged!(value.substring(6).trim());
+      } catch (e) {}
+    } else
+      this.widget.onCountryChanged!(value);
+    //code added in if condition
+    if (value != _selectedCountry) {
+      _states.clear();
+      _cities.clear();
+      _selectedState = widget.stateDropdownLabel;
+      _selectedCity = widget.cityDropdownLabel;
+      this.widget.onStateChanged!(null);
+      this.widget.onCityChanged!(null);
+      _selectedCountry = value;
+      await getStates();
+    } else {
+      this.widget.onStateChanged!(_selectedState);
+      this.widget.onCityChanged!(_selectedCity);
+    }
+    setState(() {});
   }
 
-  void _onSelectedState(String value) {
+  Future<void> _onSelectedState(String value) async {
     if (!mounted) return;
-    setState(() {
-      this.widget.onStateChanged!(value);
-      //code added in if condition
-      if (value != _selectedState) {
-        _cities.clear();
-        _selectedCity = widget.cityDropdownLabel;
-        this.widget.onCityChanged!(null);
-        _selectedState = value;
-        getCities();
-      } else {
-        this.widget.onCityChanged!(_selectedCity);
-      }
-    });
+    this.widget.onStateChanged!(value);
+    //code added in if condition
+    if (value != _selectedState) {
+      _cities.clear();
+      _selectedCity = widget.cityDropdownLabel;
+      this.widget.onCityChanged!(null);
+      _selectedState = value;
+      await getCities();
+    } else {
+      this.widget.onCityChanged!(_selectedCity);
+    }
+    setState(() {});
   }
 
   void _onSelectedCity(String value) {
